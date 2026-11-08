@@ -175,14 +175,22 @@ hybrid attention 输出与 fp16 基线 cos_sim ≥ 0.98；无 OOM（测试张量
 | 里程碑 | 交付物 | 验收标准 |
 |--------|--------|----------|
 | M0 可行性探测（✅ 已完成） | 算子/kernel 探测结论 | 全部通过 |
-| M0.5 规划入库（✅ 本文件） | PLAN.md / README / LICENSE | push 到 GitHub |
-| M1 | 码本 + 旋转 + bitpack | 对齐参考实现 |
-| M2 | 量化器（torch-npu） | cos_sim / 无偏性 / 压缩比 |
-| M3 | KV cache + hybrid attention 端到端 | demo + 测试全绿 |
-| M4 | triton-ascend 三个 kernel | 编译通过 |
-| M5 | kernel 对齐测试 | allclose(atol=1e-3) |
-| M6 | 基准测试 + 文档 | ≥1.5x 加速目标 |
-| M7 | README 成果更新 / 发布 tag | v0.1.0 |
+| M0.5 规划入库（✅ 已完成） | PLAN.md / README / LICENSE | push 到 GitHub |
+| M1 码本/旋转/bitpack（✅） | codebook/rotation/bitpack | 码本与参考逐位一致（~1e-16） |
+| M2 量化器 torch-npu（✅） | quantizer.py | 无偏性 4·SE 内；4.5x 压缩 |
+| M3 KV cache + hybrid（✅） | kv_cache/store/score + demo | 59 测试全绿（CPU+NPU） |
+| M4 triton kernel（✅） | triton_kernels.py（向量化 + split-KV） | 编译通过 |
+| M5 kernel 对齐（✅） | test_triton.py | 与 torch 路径 allclose、cos>0.999 |
+| M6 基准 + 文档（✅） | benchmarks + npu_notes.md | fused decode **2.15–2.75x**（目标 1.5x） |
+| M7 README 成果更新（✅） | README | 完成 |
+
+## 实测结果（Ascend 910）
+
+- decode 加速（fused triton vs torch）：2.75x @1k / 2.26x @4k / 2.15x @16k
+- triton score kernel vs torch score 路径：~8x
+- KV 压缩比：4.55x（3-bit key + 2-bit value，含 fp buffer）
+- 量化吞吐：Prod 量化 ~48k tok/s（8 头 × d=128）
+- NPU 移植的关键差异与优化记录：docs/npu_notes.md
 
 ---
 

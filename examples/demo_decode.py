@@ -37,12 +37,13 @@ def make_kv(batch, kv_heads, seq, d, device, seed=0, stress=False):
 
 
 def run(device, prefill_len, decode_steps, key_bits, value_bits, buffer=128,
-        stress=False):
+        stress=False, backend="torch"):
     batch, kv_heads, q_heads, d = 1, 4, 8, 128
     scale = 1.0 / math.sqrt(d)
     print(f"\n=== TurboQuant-NPU demo on {device} ===")
     print(f"prefill={prefill_len} decode={decode_steps} key_bits={key_bits} "
-          f"value_bits={value_bits} buffer={buffer} (GQA {q_heads}/{kv_heads}, d={d})")
+          f"value_bits={value_bits} buffer={buffer} (GQA {q_heads}/{kv_heads}, d={d}) "
+          f"backend={backend}")
     note = ("stress distribution (heavy-tailed); real LLM KV measures ~0.94 "
             "with 3b/2b per the reference repo" if stress else
             "iid Gaussian KV (worst case); real LLM KV measures ~0.94 with 3b/2b")
@@ -77,7 +78,7 @@ def run(device, prefill_len, decode_steps, key_bits, value_bits, buffer=128,
         cache.append(kk, vv)
 
         t0 = time.perf_counter()
-        scores = cache.attention_scores(q)
+        scores = cache.attention_scores(q, backend=backend)
         out = cache.attend(F.softmax(scores.float(), dim=-1))
         synchronize(device)
         t_decode += time.perf_counter() - t0
@@ -115,11 +116,12 @@ def main():
     ap.add_argument("--no-accel", action="store_true")
     ap.add_argument("--stress", action="store_true",
                     help="heavy-tailed KV distribution (hard case)")
+    ap.add_argument("--backend", choices=["torch", "triton"], default="torch")
     args = ap.parse_args()
 
     device = torch.device("cpu") if args.no_accel else resolve_device()
     run(device, args.prefill, args.decode, args.key_bits, args.value_bits,
-        stress=args.stress)
+        stress=args.stress, backend=args.backend)
 
 
 if __name__ == "__main__":
